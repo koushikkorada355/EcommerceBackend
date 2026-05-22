@@ -164,3 +164,243 @@ exports.verifyToken = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
+// Get user profile
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user?.userId;
+
+    if (!userId) {
+      logger.warn('Profile fetch attempted without userId');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    logger.info('Profile retrieved', { userId });
+    res.json({ user: user.toJSON() });
+  } catch (error) {
+    logger.error('Get profile error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Update profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user?.userId;
+    const { firstName, lastName, phone, dateOfBirth, gender, bio, profilePicture } = req.body;
+
+    if (!userId) {
+      logger.warn('Profile update attempted without userId');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        phone: phone || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        gender: gender || undefined,
+        bio: bio || undefined,
+        profilePicture: profilePicture || undefined,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      logger.warn('Profile not found for update', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    logger.info('Profile updated', { userId });
+    res.json({ message: 'Profile updated successfully', user: updatedUser.toJSON() });
+  } catch (error) {
+    logger.error('Update profile error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Add address
+exports.addAddress = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user?.userId;
+    const { label, street, city, state, postalCode, country } = req.body;
+
+    if (!userId) {
+      logger.warn('Add address attempted without userId');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    if (!label || !street || !city || !state || !postalCode || !country) {
+      logger.warn('Add address with missing fields', { userId });
+      return res.status(400).json({ message: 'All address fields are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for address addition', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    user.addresses.push({ label, street, city, state, postalCode, country });
+    await user.save();
+
+    logger.info('Address added', { userId, label });
+    res.status(201).json({ message: 'Address added successfully', user: user.toJSON() });
+  } catch (error) {
+    logger.error('Add address error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Update address
+exports.updateAddress = async (req, res) => {
+  try {
+    const { userId, addressId } = req.params;
+    const { label, street, city, state, postalCode, country, isDefault } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for address update', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    const address = user.addresses.id(addressId);
+    if (!address) {
+      logger.warn('Address not found', { userId, addressId });
+      return res.status(404).json({ message: 'Address not found' });
+    }
+
+    Object.assign(address, { label, street, city, state, postalCode, country, isDefault });
+    await user.save();
+
+    logger.info('Address updated', { userId, addressId });
+    res.json({ message: 'Address updated successfully', user: user.toJSON() });
+  } catch (error) {
+    logger.error('Update address error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Delete address
+exports.deleteAddress = async (req, res) => {
+  try {
+    const { userId, addressId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for address deletion', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    user.addresses.id(addressId).deleteOne();
+    await user.save();
+
+    logger.info('Address deleted', { userId, addressId });
+    res.json({ message: 'Address deleted successfully', user: user.toJSON() });
+  } catch (error) {
+    logger.error('Delete address error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get all addresses
+exports.getAddresses = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user?.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for address retrieval', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    logger.info('Addresses retrieved', { userId, count: user.addresses.length });
+    res.json({ addresses: user.addresses });
+  } catch (error) {
+    logger.error('Get addresses error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Add to wishlist
+exports.addToWishlist = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user?.userId;
+    const { productId } = req.body;
+
+    if (!productId) {
+      logger.warn('Add to wishlist without productId', { userId });
+      return res.status(400).json({ message: 'Product ID is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for wishlist action', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    const exists = user.wishlist.some((item) => item.productId.toString() === productId);
+    if (exists) {
+      logger.warn('Product already in wishlist', { userId, productId });
+      return res.status(400).json({ message: 'Product already in wishlist' });
+    }
+
+    user.wishlist.push({ productId });
+    await user.save();
+
+    logger.info('Product added to wishlist', { userId, productId });
+    res.json({ message: 'Added to wishlist', wishlist: user.wishlist });
+  } catch (error) {
+    logger.error('Add to wishlist error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Remove from wishlist
+exports.removeFromWishlist = async (req, res) => {
+  try {
+    const { userId, productId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for wishlist removal', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    user.wishlist = user.wishlist.filter((item) => item.productId.toString() !== productId);
+    await user.save();
+
+    logger.info('Product removed from wishlist', { userId, productId });
+    res.json({ message: 'Removed from wishlist', wishlist: user.wishlist });
+  } catch (error) {
+    logger.error('Remove from wishlist error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get wishlist
+exports.getWishlist = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user?.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('Profile not found for wishlist retrieval', { userId });
+      return res.status(404).json({ message: 'User profile not found' });
+    }
+
+    logger.info('Wishlist retrieved', { userId, count: user.wishlist.length });
+    res.json({ wishlist: user.wishlist });
+  } catch (error) {
+    logger.error('Get wishlist error', { error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

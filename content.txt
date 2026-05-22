@@ -1,0 +1,195 @@
+1. Auth Service (Consolidated - Auth + User Service)
+
+Handles:
+
+Login
+Register
+JWT authentication
+Refresh tokens
+User profile management
+Address management
+Wishlist management
+
+Main APIs:
+
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh-token
+GET  /api/auth/profile/:userId
+PUT  /api/auth/profile/:userId
+GET  /api/auth/:userId/addresses
+POST /api/auth/:userId/addresses
+GET  /api/auth/:userId/wishlist
+POST /api/auth/:userId/wishlist
+
+Usually uses:
+
+JWT
+bcrypt
+MongoDB
+3. Product Service
+
+Most important service.
+
+Handles:
+
+Products
+Categories
+Prices
+Reviews
+
+Example:
+
+iPhone
+Laptop
+Shoes
+
+Main APIs:
+
+GET /products
+POST /products
+4. Cart Service
+
+Handles:
+
+Add to cart
+Remove from cart
+Cart updates
+
+Best with:
+
+Redis
+
+Flow:
+
+User adds product
+      ↓
+Cart Service
+      ↓
+Redis
+5. Order Service
+
+Heart of business logic.
+
+Handles:
+
+Checkout
+Order creation
+Order history
+Order status
+
+Example:
+
+PENDING
+PAID
+DELIVERED
+6. Payment Service
+
+Handles:
+
+Online payments
+Refunds
+Payment verification
+
+Integrates:
+
+Razorpay
+Stripe
+7. Inventory Service
+
+Handles stock management.
+
+Example:
+
+Stock: 10 → 9
+
+Triggered after order creation.
+
+Usually consumes:
+
+Kafka events
+8. Search Service
+
+Handles:
+
+Product searching
+Filters
+Full-text search
+
+Best with:
+Elasticsearch
+
+9. Notification Service
+
+Handles:
+
+Email
+SMS
+Push notifications
+
+Example:
+
+Order confirmation email
+
+Good place for:
+RabbitMQ
+
+Supporting Infrastructure
+Kafka
+
+Use:
+Apache Kafka
+
+for:
+
+ORDER_CREATED
+PAYMENT_SUCCESS
+PRODUCT_UPDATED
+Redis
+
+Use for:
+
+Cart
+Caching
+Sessions
+Docker
+
+Use:
+Docker
+
+to run all services easily.
+
+Recommended Final Architecture
+                React Frontend
+                        ↓
+                  API Gateway
+                        ↓
+----------------------------------------------------------------
+|       |        |        |        |        |        |          |
+Auth  Product   Cart    Order   Payment   User    Search   Inventory
+----------------------------------------------------------------
+                        ↓
+                     Kafka
+                        ↓
+--------------------------------------
+|                    |               |
+Notification      Analytics      Search Sync
+Most Important Services Initially
+
+If starting now:
+
+Build First
+Auth
+Product
+Cart
+Order
+Payment
+Then Add
+Inventory
+Search
+Notification
+Kafka
+Redis
+Docker
+
+This is the best learning order for your MERN project.
