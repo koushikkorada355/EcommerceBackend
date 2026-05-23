@@ -34,6 +34,6 @@ build
 */logs/
 logs/
 
-# Root level files
-/package.json
-/content.txt
+# Ignore all package.json files
+**/package.json
+**/package-lock.json
