@@ -113,7 +113,7 @@ Kafka events
 Handles:
 
 Product searching
-Filters
+Filtersriggered after order creation.
 Full-text search
 
 Best with:
@@ -193,3 +193,37 @@ Redis
 Docker
 
 This is the best learning order for your MERN project.
+
+
+
+
+1. User places order
+        ↓
+2. Order Service creates PENDING order
+        ↓
+3. Publish ORDER_CREATED
+        ↓
+4. Inventory Service consumes event
+        ↓
+5. Acquire Redis lock
+        ↓
+6. Check stock
+        ↓
+7. Reserve stock
+        ↓
+8. Release lock
+        ↓
+9. Publish STOCK_RESERVED
+        ↓
+10. Payment Service consumes event
+        ↓
+11. Process payment
+        ↓
+12A. Publish PAYMENT_SUCCESS
+            OR
+12B. Publish PAYMENT_FAILED
+        ↓
+13. Consumers react independently:
+    ├── Order Service updates order status
+    ├── Inventory confirms/releases reservation
+    └── Notification sends email/SMS

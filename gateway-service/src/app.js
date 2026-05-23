@@ -1,77 +1,51 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const dotenv = require('dotenv');
 const logger = require('./utils/logger');
 const { authenticateToken } = require('./middleware/jwtAuth');
+const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
 
 dotenv.config();
 
 const app = express();
 
-// LOCALHOST ADDRESSES FOR LOCAL DEVELOPMENT
-const AUTH_URL = 'http://localhost:3001';
-const PRODUCT_URL = 'http://localhost:3003';
-const CART_URL = 'http://localhost:3002';
-const ORDER_URL = 'http://localhost:3004';
-const SEARCH_URL = 'http://localhost:3005';
+// Service URLs
+const AUTH_URL = process.env.AUTH_URL || 'http://localhost:3001';
+const PRODUCT_URL = process.env.PRODUCT_URL || 'http://localhost:3003';
+const CART_URL = process.env.CART_URL || 'http://localhost:3002';
+const ORDER_URL = process.env.ORDER_URL || 'http://localhost:3004';
+const SEARCH_URL = process.env.SEARCH_URL || 'http://localhost:3005';
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ONE AUTHENTICATION METHOD - ALL ROUTES
+app.use(globalLimiter);
 app.use(authenticateToken);
 
-// ===== HELPER FUNCTION TO FORWARD REQUESTS =====
+// Proxy options
+const proxyOptions = (target) => ({
+  target,
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
+    logger.info(`Proxying ${req.method} ${req.path} to ${target}`);
+    if (req.user) {
+      proxyReq.setHeader('x-user-id', req.user.userId || req.user.id);
+    }
+  },
+  onError: (err, req, res) => {
+    logger.error('Proxy error', { error: err.message });
+    res.status(503).json({ message: 'Service unavailable' });
+  },
+});
 
-async function forwardRequest(req, res, serviceUrl) {
-  try {
-    const url = `${serviceUrl}${req.path}`;
-    
-    // Request config
-    const config = {
-      method: req.method,
-      url: url,
-      headers: {
-        ...req.headers,
-        'x-user-id': req.userId || null,  // Add user ID if authenticated
-        host: undefined  // Remove host to avoid conflicts
-      },
-      data: req.body,
-      validateStatus: () => true  // Accept all status codes
-    };
-
-    logger.info(`Forward ${req.method} ${req.path} to ${serviceUrl}`);
-
-    // Make request to microservice
-    const response = await axios(config);
-
-    // Send response back
-    res.status(response.status);
-    
-    // Forward headers
-    Object.entries(response.headers).forEach(([key, value]) => {
-      res.setHeader(key, value);
-    });
-
-    res.send(response.data);
-
-  } catch (error) {
-    logger.error('Forward request error', { error: error.message });
-    res.status(503).json({ 
-      message: 'Service unavailable',
-      error: error.message 
-    });
-  }
-}
-
-app.all('/api/auth*', (req, res) => forwardRequest(req, res, AUTH_URL));
-
-app.all('/api/products*', (req, res) => forwardRequest(req, res, PRODUCT_URL));
-app.all('/api/cart*', (req, res) => forwardRequest(req, res, CART_URL));
-app.all('/api/orders*', (req, res) => forwardRequest(req, res, ORDER_URL));
+// Proxy middleware for each service
+app.use('/api/auth', authLimiter, createProxyMiddleware(proxyOptions(AUTH_URL)));
+app.use('/api/products', createProxyMiddleware(proxyOptions(PRODUCT_URL)));
+app.use('/api/cart', createProxyMiddleware(proxyOptions(CART_URL)));
+app.use('/api/orders', createProxyMiddleware(proxyOptions(ORDER_URL)));
+app.use('/api/search', createProxyMiddleware(proxyOptions(SEARCH_URL)));
 
 // 404 - Not found
 app.use((req, res) => {
