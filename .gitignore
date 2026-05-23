@@ -33,3 +33,7 @@ build
 # Winston logs directory
 */logs/
 logs/
+
+# Root level files
+/package.json
+/content.txt
